@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="@color/start_screens_background">
+
+    <TextView android:id="@+id/register_page_main_text"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:text="@string/register_page_main_text"
+              android:fontFamily="sans-serif-black"
+              android:textAlignment="center"
+              android:gravity="center"
+              android:textSize="40sp"
+              android:textColor="@color/start_screens_main_texts"
+              android:layout_marginBottom="200dp"
+              android:textStyle="bold">
+    </TextView>
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/register_username_error_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="20dp"
+        android:layout_marginBottom="10dp"
+        app:errorEnabled="false"
+        app:errorTextAppearance="@style/StartPagesErrorMessage">
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <EditText android:id="@+id/register_username_textbox"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:inputType="text"
+              android:padding="20dp"
+              android:layout_marginHorizontal="20dp"
+              android:layout_marginBottom="20dp"
+              android:textColor="@color/white"
+              android:textSize="20sp"
+              android:hint="@string/register_page_username_hint"
+              android:textColorHint="@color/start_screens_field_hint"
+              android:background="@drawable/start_pages_field"
+              android:autofillHints="username">
+    </EditText>
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/register_password_error_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="20dp"
+        android:layout_marginBottom="10dp"
+        app:errorTextAppearance="@style/StartPagesErrorMessage"
+        app:errorEnabled="false">
+    </com.google.android.material.textfield.TextInputLayout>
+    
+    <EditText android:id="@+id/register_password_textbox"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:inputType="textPassword"
+        android:layout_marginHorizontal="20dp"
+        android:layout_marginBottom="20dp"
+        android:padding="20dp"
+        android:textColor="@color/white"
+        android:textSize="20sp"
+        android:hint="@string/register_page_password_hint"
+        android:textColorHint="@color/start_screens_field_hint"
+        android:background="@drawable/start_pages_field"
+        android:importantForAutofill="no">
+    </EditText>
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/register_email_error_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="20dp"
+        android:layout_marginBottom="10dp"
+        app:errorEnabled="false"
+        app:errorTextAppearance="@style/StartPagesErrorMessage">
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <EditText android:id="@+id/register_email_textbox"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:inputType="textEmailAddress"
+              android:layout_marginHorizontal="20dp"
+              android:layout_marginBottom="40dp"
+              android:padding="20dp"
+              android:textColor="@color/white"
+              android:textSize="20sp"
+              android:hint="@string/register_page_email_hint"
+              android:textColorHint="@color/start_screens_field_hint"
+              android:autofillHints="emailAddress"
+              android:background="@drawable/start_pages_field">
+    </EditText>
+
+    <Button android:id="@+id/register_page_register_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/register_page_register_button"
+            android:textSize="22sp"
+            style="@style/StartScreensButtons"
+            android:paddingHorizontal="30dp"
+            android:paddingVertical="10dp">
+    </Button>
+
+</LinearLayout>

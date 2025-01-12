@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="@color/start_screens_background">
+
+    <TextView
+        android:id="@+id/welcome_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="sans-serif-black"
+        android:gravity="center"
+        android:text="@string/welcome_text"
+        android:textColor="@color/start_screens_main_texts"
+        android:textStyle="bold"
+        android:textSize="30sp"
+        android:paddingBottom="50dp"
+        android:layout_marginHorizontal="15dp"
+        android:layout_marginBottom="50dp">
+    </TextView>
+
+    <Button android:id="@+id/welcome_screen_register_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/welcome_page_register_button"
+            android:textSize="17sp"
+            android:textColor="@color/start_screens_button_texts"
+            android:paddingVertical="15dp"
+            android:paddingHorizontal="20dp"
+            android:layout_marginBottom="20dp"
+            style="@style/StartScreensButtons">
+    </Button>
+
+    <Button android:id="@+id/welcome_screen_login_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/welcome_page_login_button"
+            android:textSize="17sp"
+            android:textColor="@color/start_screens_button_texts"
+            android:paddingHorizontal="30dp"
+            android:paddingVertical="15dp"
+            style="@style/StartScreensButtons">
+    </Button>
+
+</LinearLayout>

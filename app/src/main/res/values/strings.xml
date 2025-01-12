@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">SecureChatClient</string>
+    <string name="welcome_text">Welcome to the Secure Chat Application!</string>
+    <string name="welcome_page_register_button">Create an account</string>
+    <string name="welcome_page_login_button">Log in</string>
+    <string name="register_page_main_text">Create an account</string>
+    <string name="register_page_username_hint">Enter your username</string>
+    <string name="register_page_password_hint">Enter your password</string>
+    <string name="register_page_email_hint">Enter your email address</string>
+    <string name="register_page_register_button">Register</string>
+    <string name="login_page_main_text">Let\'s connect with others!</string>
+    <string name="login_page_username_hint">Username</string>
+    <string name="login_page_password_hint">Password</string>
+    <string name="login_page_login_button">Log in</string>
+    <string name="login_page_successful_registration">Registration was successful! Please log in to continue!</string>
+    <string name="brand_name">Secure Chat App</string>
+    <string name="chat_list_page_user_search_bar_hint">Search user...</string>
+    <string name="personal_chat_back_arrow">Back arrow from personal chat to chat list</string>
+    <string name="personal_chat_message_input_box_hint">Type your message here...</string>
+    <string name="personal_chat_message_sending_arrow">Arrow for sending the message</string>
+</resources>

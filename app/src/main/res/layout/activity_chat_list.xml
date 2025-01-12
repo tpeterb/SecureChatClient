@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="fill_vertical"
+    android:orientation="vertical"
+    android:background="@color/chat_list_background">
+
+    <TextView
+        android:id="@+id/chat_list_page_app_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/brand_name"
+        android:textStyle="bold"
+        android:textAlignment="center"
+        android:textColor="@color/chat_list_brand_name"
+        android:textSize="25sp"
+        android:padding="20dp">
+    </TextView>
+
+    <SearchView
+        android:id="@+id/chat_list_page_user_search_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:queryHint="@string/chat_list_page_user_search_bar_hint"
+        android:inputType="text"
+        android:padding="5dp"
+        android:background="@color/white"
+        style="@style/ChatListPageUserSearchBar"
+        android:iconifiedByDefault="false">
+    </SearchView>
+    
+    <FrameLayout
+        android:id="@+id/chat_list_page_frame_layout"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            android:elevation="8dp">
+
+            <ListView
+                android:id="@+id/chat_list_page_search_results"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                android:divider="@android:color/transparent"
+                android:dividerHeight="1dp">
+            </ListView>
+
+        </FrameLayout>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/chat_list_page_chat_list"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false">
+        </androidx.recyclerview.widget.RecyclerView>
+
+    </FrameLayout>
+
+</LinearLayout>

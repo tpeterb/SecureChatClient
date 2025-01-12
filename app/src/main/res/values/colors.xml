@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#FF6200EE</color>
+    <color name="purple_700">#FF3700B3</color>
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="start_screens_background">#12343b</color>
+    <color name="start_screens_main_texts">#fceed1</color>
+    <color name="start_screens_button_texts">#ffffff</color>
+    <color name="start_screens_buttons_background">#7d3cff</color>
+    <color name="start_screens_field_hint">#bec5cc</color>
+    <color name="chat_list_background">#263238</color>
+    <color name="chat_list_brand_name">#E0E0E0</color>
+    <color name="chat_list_search_bar_hint">#C8C8C8</color>
+    <color name="chat_list_search_result_background">#F5F5F5</color>
+    <color name="chat_list_search_result_text">#2C2C2C</color>
+    <color name="chat_list_search_result_pressed">#E0E0E0</color>
+    <color name="chat_list_user_item_background">#263238</color>
+    <color name="chat_list_user_item_username">#E0E0E0</color>
+    <color name="personal_chat_background">#0b1f19</color>
+    <color name="personal_chat_chat_partner_username">#e0fff2</color>
+    <color name="personal_chat_message_text">#e0fff2</color>
+    <color name="personal_chat_message_background">#309fdb</color>
+    <color name="personal_chat_message_input_box_background">#0a140e</color>
+    <color name="personal_chat_message_input_box_hint">#baccc1</color>
+    <color name="personal_chat_message_input_box_text">#e9ecf7</color>
+    <color name="personal_chat_message_sending_button">#c49512</color>
+</resources>
