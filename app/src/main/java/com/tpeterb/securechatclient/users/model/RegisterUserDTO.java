@@ -11,6 +11,8 @@ public class RegisterUserDTO extends UserActionDTO {
 
     String email;
 
+    byte[] digitalSignaturePublicKeyOfUser;
+
     @Override
     public String toString() {
         return "UserDTO{" +

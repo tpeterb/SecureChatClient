@@ -53,6 +53,7 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
+    implementation(libs.androidx.lifecycle.process)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -61,8 +62,8 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 
-    implementation("com.google.dagger:hilt-android:2.52")
-    annotationProcessor("com.google.dagger:hilt-compiler:2.52")
+    implementation(libs.dagger)
+    annotationProcessor(libs.dagger.compiler)
 
     annotationProcessor("org.projectlombok:lombok:1.18.34")
     compileOnly("org.projectlombok:lombok:1.18.34")
@@ -87,5 +88,10 @@ dependencies {
     implementation (libs.rxjava)
 
     implementation(libs.failsafe.v244)
+
+    implementation(libs.bcprov.jdk18on)
+
+    implementation(libs.androidx.security.crypto)
+
 
 }

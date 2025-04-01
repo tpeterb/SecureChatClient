@@ -1,5 +1,6 @@
 package com.tpeterb.securechatclient.users.service.factory;
 
+import com.tpeterb.securechatclient.security.model.EncryptedPacket;
 import com.tpeterb.securechatclient.users.api.LoginResponse;
 import com.tpeterb.securechatclient.users.api.RegistrationResponse;
 import com.tpeterb.securechatclient.users.api.UserActionResponse;
@@ -9,9 +10,11 @@ import com.tpeterb.securechatclient.users.model.UserActionDTO;
 import com.tpeterb.securechatclient.users.service.ChatServerApiService;
 
 import javax.inject.Inject;
+import javax.inject.Singleton;
 
 import retrofit2.Call;
 
+@Singleton
 public class CallFactory {
 
     private final ChatServerApiService chatServerApiService;
@@ -21,11 +24,11 @@ public class CallFactory {
         this.chatServerApiService = chatServerApiService;
     }
 
-    public <T extends UserActionResponse, U extends UserActionDTO> Call<T> createCall(Class<T> userActionResponseClass, U userDTO) {
+    public <T extends UserActionResponse> Call<EncryptedPacket> createCall(Class<T> userActionResponseClass, EncryptedPacket encryptedPacket) {
         if (userActionResponseClass.equals(RegistrationResponse.class)) {
-            return (Call<T>) chatServerApiService.registerUser((RegisterUserDTO) userDTO);
+            return chatServerApiService.registerUser(encryptedPacket);
         } else if (userActionResponseClass.equals(LoginResponse.class)) {
-            return (Call<T>) chatServerApiService.loginUser((LoginUserDTO) userDTO);
+            return chatServerApiService.loginUser(encryptedPacket);
         }
         return null;
     }

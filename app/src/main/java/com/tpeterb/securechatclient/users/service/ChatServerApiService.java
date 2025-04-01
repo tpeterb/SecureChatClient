@@ -1,5 +1,6 @@
 package com.tpeterb.securechatclient.users.service;
 
+import com.tpeterb.securechatclient.security.model.EncryptedPacket;
 import com.tpeterb.securechatclient.users.api.LoginResponse;
 import com.tpeterb.securechatclient.users.api.RegistrationResponse;
 import com.tpeterb.securechatclient.users.model.ChatPartner;
@@ -17,15 +18,15 @@ import retrofit2.http.Path;
 public interface ChatServerApiService {
 
     @POST("api/register")
-    Call<RegistrationResponse> registerUser(@Body RegisterUserDTO registerUserDTO);
+    Call<EncryptedPacket> registerUser(@Body EncryptedPacket encryptedPacket);
 
     @POST("api/login")
-    Call<LoginResponse> loginUser(@Body LoginUserDTO loginUserDTO);
+    Call<EncryptedPacket> loginUser(@Body EncryptedPacket encryptedPacket);
 
-    @GET("api/usernames/{username}")
-    Call<List<String>> getUsernamesForSearchedUsername(@Path("username") String searchedUsername);
+    @POST("api/search/usernames")
+    Call<EncryptedPacket> getUsernamesForSearchedUsername(@Body EncryptedPacket encryptedPacket);
 
-    @GET("api/chat-partners/{username}")
-    Call<List<ChatPartner>> getChatPartnersForUsername(@Path("username") String username);
+    @POST("api/search/chat-partners")
+    Call<EncryptedPacket> getChatPartnersForUsername(@Body EncryptedPacket encryptedPacket);
 
 }

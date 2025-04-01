@@ -1,11 +1,13 @@
 package com.tpeterb.securechatclient.messages.factory;
 
+import com.tpeterb.securechatclient.exception.WebSocketConnectionAttemptFailureException;
 import com.tpeterb.securechatclient.messages.config.WebSocketConnectionConfig;
 
 import net.jodah.failsafe.RetryPolicy;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import java.util.concurrent.CompletionException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -35,7 +37,9 @@ public final class RetryPolicyFactory {
                 )
                 .onSuccess(objectExecutionCompletedEvent ->
                         log.info("Successfully finished retrying connecting to the server via websocket!")
-                );
+                )
+                .handle(WebSocketConnectionAttemptFailureException.class)
+                .handle(CompletionException.class);
     }
 
 }

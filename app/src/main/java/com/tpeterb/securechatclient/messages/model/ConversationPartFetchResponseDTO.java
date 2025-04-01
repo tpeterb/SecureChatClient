@@ -2,6 +2,7 @@ package com.tpeterb.securechatclient.messages.model;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.tpeterb.securechatclient.security.model.EncryptedReceivedMessageDTO;
 
 import java.util.List;
 
@@ -14,13 +15,13 @@ public class ConversationPartFetchResponseDTO {
 
     String chatPartnerUsername;
 
-    List<MessageDTO> messages;
+    List<EncryptedReceivedMessageDTO> messages;
 
     @JsonCreator
     public ConversationPartFetchResponseDTO(
             @JsonProperty("conversationPartId") String conversationPartId,
             @JsonProperty("chatPartnerUsername") String chatPartnerUsername,
-            @JsonProperty("messages") List<MessageDTO> messages) {
+            @JsonProperty("messages") List<EncryptedReceivedMessageDTO> messages) {
         this.conversationPartId = conversationPartId;
         this.chatPartnerUsername = chatPartnerUsername;
         this.messages = messages;

@@ -14,7 +14,7 @@ import android.widget.EditText;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
-
+import androidx.lifecycle.LiveData;
 
 import com.google.android.material.textfield.TextInputLayout;
 import com.tpeterb.securechatclient.R;
@@ -22,6 +22,11 @@ import com.tpeterb.securechatclient.application.ChatApplication;
 import com.tpeterb.securechatclient.messages.registry.ChatPartnerRegistry;
 import com.tpeterb.securechatclient.messages.registry.MessageRegistry;
 import com.tpeterb.securechatclient.messages.registry.StompSubscriptionRegistry;
+import com.tpeterb.securechatclient.messages.service.StompSubscriptionService;
+import com.tpeterb.securechatclient.security.cache.DigitalSignatureKeyPairCache;
+import com.tpeterb.securechatclient.security.config.SecurityConfig;
+import com.tpeterb.securechatclient.security.model.KeyExchangeResult;
+import com.tpeterb.securechatclient.security.service.EllipticCurveDiffieHellmanKeyExchangeService;
 import com.tpeterb.securechatclient.ui.form.UserFormService;
 import com.tpeterb.securechatclient.users.model.LoginUserDTO;
 import com.tpeterb.securechatclient.users.model.UserLoginResult;
@@ -44,6 +49,9 @@ public class LoginActivity extends AppCompatActivity {
     UserService userService;
 
     @Inject
+    SecurityConfig securityConfig;
+
+    @Inject
     UserFormService userFormService;
 
     @Inject
@@ -53,10 +61,19 @@ public class LoginActivity extends AppCompatActivity {
     MessageRegistry messageRegistry;
 
     @Inject
+    EllipticCurveDiffieHellmanKeyExchangeService ellipticCurveDiffieHellmanKeyExchangeService;
+
+    @Inject
+    StompSubscriptionService stompSubscriptionService;
+
+    @Inject
     StompSubscriptionRegistry stompSubscriptionRegistry;
 
     @Inject
     ChatPartnerRegistry chatPartnerRegistry;
+
+    @Inject
+    DigitalSignatureKeyPairCache digitalSignatureKeyPairCache;
 
     private TextView successfulRegistrationText;
 
@@ -81,9 +98,13 @@ public class LoginActivity extends AppCompatActivity {
             clearRegistries();
 
             userSession.clearUserSession();
+
+            digitalSignatureKeyPairCache.clearDigitalSignatureKeyPairCache();
         }
 
         isLoadedForTheFirstTime = false;
+
+        initiateKeyExchangeWithServerWithRetriesBeforeLogin(0, () -> {});
 
     }
 
@@ -105,7 +126,7 @@ public class LoginActivity extends AppCompatActivity {
 
         clearRegistries();
 
-        userSession.clearUserSession();
+        digitalSignatureKeyPairCache.clearDigitalSignatureKeyPairCache();
 
         setupLoginButtonClickHandling();
 
@@ -149,7 +170,19 @@ public class LoginActivity extends AppCompatActivity {
                         case SUCCESS:
                             log.info("LoginActivity received successful login result!");
                             userSession.setUsername(loginUserDTO.getUsername());
-                            redirectToChatListActivity();
+                            digitalSignatureKeyPairCache.loadKeyPairForUser(userSession.getUsername());
+                            initiateKeyExchangeWithServerWithRetriesAfterLogin(0, () -> {
+                                stompSubscriptionService.subscribeToNewKeyExchangeSignalingDestination();
+                                redirectToChatListActivity();
+                            });
+                            break;
+                        case BAD_SESSION_KEY:
+                            loginButton.setEnabled(false);
+                            loginButton.setAlpha(0.5f);
+                            initiateKeyExchangeWithServerWithRetriesBeforeLogin(0, () -> {
+                                loginButton.setEnabled(true);
+                                loginButton.setAlpha(1f);
+                            });
                             break;
                         case FAILURE:
                             log.info("LoginActivity received failed login result!");
@@ -160,6 +193,43 @@ public class LoginActivity extends AppCompatActivity {
             }
         });
 
+    }
+
+    private void handleFailedKeyExchange() {
+        userSession.clearUserSession();
+        digitalSignatureKeyPairCache.clearDigitalSignatureKeyPairCache();
+    }
+
+    private void initiateKeyExchangeWithServerWithRetriesBeforeLogin(int retryCount, Runnable successfulKeyExchangeTask) {
+        if (retryCount > securityConfig.getKeyExchangeRetryAttempts()) {
+            handleFailedKeyExchange();
+            return;
+        }
+        int nextRetryCount = retryCount + 1;
+        LiveData<KeyExchangeResult> keyExchangeLiveData = ellipticCurveDiffieHellmanKeyExchangeService.initiateKeyExchangeWithServerBeforeLogin(this);
+        keyExchangeLiveData.observe(this, keyExchangeResult -> {
+            if (keyExchangeResult == KeyExchangeResult.SUCCESS) {
+                successfulKeyExchangeTask.run();
+            } else {
+                initiateKeyExchangeWithServerWithRetriesBeforeLogin(nextRetryCount, successfulKeyExchangeTask);
+            }
+        });
+    }
+
+    private void initiateKeyExchangeWithServerWithRetriesAfterLogin(int retryCount, Runnable successfulKeyExchangeTask) {
+        if (retryCount > securityConfig.getKeyExchangeRetryAttempts()) {
+            handleFailedKeyExchange();
+            return;
+        }
+        int nextRetryCount = retryCount + 1;
+        LiveData<KeyExchangeResult> keyExchangeLiveData = ellipticCurveDiffieHellmanKeyExchangeService.initiateKeyExchangeWithServerAfterLogin(this);
+        keyExchangeLiveData.observe(this, keyExchangeResult -> {
+            if (keyExchangeResult == KeyExchangeResult.SUCCESS) {
+                successfulKeyExchangeTask.run();
+            } else {
+                initiateKeyExchangeWithServerWithRetriesAfterLogin(nextRetryCount, successfulKeyExchangeTask);
+            }
+        });
     }
 
     private void addTextChangeListenerToEditText(EditText editText, TextInputLayout errorMessageBox) {

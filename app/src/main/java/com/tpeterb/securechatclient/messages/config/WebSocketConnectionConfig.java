@@ -34,6 +34,8 @@ public class WebSocketConnectionConfig {
 
         double jitterFactor = 0.2;
 
+        int maxWaitSecondsPerConnectionAttempt = 15;
+
     }
 
     @Value

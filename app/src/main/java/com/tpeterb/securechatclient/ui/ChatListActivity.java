@@ -1,5 +1,7 @@
 package com.tpeterb.securechatclient.ui;
 
+import static com.tpeterb.securechatclient.constants.Constants.NEW_KEY_EXCHANGE_SIGNALING_GENERAL_ENDPOINT;
+
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
@@ -9,6 +11,7 @@ import android.widget.SearchView;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.LiveData;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -16,14 +19,20 @@ import com.tpeterb.securechatclient.R;
 import com.tpeterb.securechatclient.application.ChatApplication;
 import com.tpeterb.securechatclient.messages.delivery.WebSocketClient;
 import com.tpeterb.securechatclient.messages.registry.ChatPartnerRegistry;
-import com.tpeterb.securechatclient.messages.registry.MessageRegistry;
 import com.tpeterb.securechatclient.messages.registry.StompSubscriptionRegistry;
+import com.tpeterb.securechatclient.messages.service.StompSubscriptionService;
+import com.tpeterb.securechatclient.security.cache.DigitalSignatureKeyPairCache;
+import com.tpeterb.securechatclient.security.config.SecurityConfig;
+import com.tpeterb.securechatclient.security.model.KeyExchangeResult;
+import com.tpeterb.securechatclient.security.service.EllipticCurveDiffieHellmanKeyExchangeService;
 import com.tpeterb.securechatclient.ui.adapter.ChatListAdapter;
 import com.tpeterb.securechatclient.ui.adapter.CustomSearchAdapter;
+import com.tpeterb.securechatclient.users.model.ChatPartner;
 import com.tpeterb.securechatclient.users.service.UserService;
 import com.tpeterb.securechatclient.users.session.UserSession;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 import javax.inject.Inject;
@@ -45,7 +54,22 @@ public class ChatListActivity extends AppCompatActivity {
     WebSocketClient webSocketClient;
 
     @Inject
+    DigitalSignatureKeyPairCache digitalSignatureKeyPairCache;
+
+    @Inject
+    SecurityConfig securityConfig;
+
+    @Inject
+    EllipticCurveDiffieHellmanKeyExchangeService ellipticCurveDiffieHellmanKeyExchangeService;
+
+    @Inject
     ChatPartnerRegistry chatPartnerRegistry;
+
+    @Inject
+    StompSubscriptionRegistry stompSubscriptionRegistry;
+
+    @Inject
+    StompSubscriptionService stompSubscriptionService;
 
     private TextView brandNameTextView;
 
@@ -198,8 +222,17 @@ public class ChatListActivity extends AppCompatActivity {
     }
 
     private void searchForUsernames(String searchedUsername) {
-        userService.getUsernamesForSearchedUsername(searchedUsername).observe(this, usernames -> {
-            if (Objects.nonNull(usernames)) {
+        userService.getUsernamesForSearchedUsername(searchedUsername).observe(this, usernamesOptional -> {
+            if (Objects.isNull(usernamesOptional) || usernamesOptional.isEmpty()) {
+                userSearchBarView.setOnQueryTextListener(null);
+                stompSubscriptionRegistry.removeSubscription(NEW_KEY_EXCHANGE_SIGNALING_GENERAL_ENDPOINT + userSession.getSessionId());
+                initiateKeyExchangeWithServerWithRetries(0, () -> {
+                    stompSubscriptionService.subscribeToNewKeyExchangeSignalingDestination();
+                    setupSearchBarTextListener();
+                });
+            }
+            if (Objects.nonNull(usernamesOptional) && usernamesOptional.isPresent()) {
+                List<String> usernames = usernamesOptional.get();
                 log.info("Fetched usernames = {}", usernames);
                 searchAdapter.clear();
                 searchAdapter.addAll(usernames);
@@ -209,14 +242,49 @@ public class ChatListActivity extends AppCompatActivity {
         });
     }
 
+    private void initiateKeyExchangeWithServerWithRetries(int retryCount, Runnable successfulKeyExchangeTask) {
+        if (retryCount > securityConfig.getKeyExchangeRetryAttempts()) {
+            handleFailedKeyExchange();
+            return;
+        }
+        int nextRetryCount = retryCount + 1;
+        LiveData<KeyExchangeResult> keyExchangeLiveData = ellipticCurveDiffieHellmanKeyExchangeService.initiateKeyExchangeWithServerAfterLogin(this);
+        keyExchangeLiveData.observe(this, keyExchangeResult -> {
+            if (keyExchangeResult == KeyExchangeResult.SUCCESS) {
+                successfulKeyExchangeTask.run();
+            } else {
+                initiateKeyExchangeWithServerWithRetries(nextRetryCount, successfulKeyExchangeTask);
+            }
+        });
+    }
+
+    private void handleFailedKeyExchange() {
+        userSession.clearUserSession();
+        digitalSignatureKeyPairCache.clearDigitalSignatureKeyPairCache();
+        redirectToMainActivity();
+    }
+
+    private void redirectToMainActivity() {
+        Intent intent = new Intent(this, MainActivity.class);
+        startActivity(intent);
+    }
+
     private void replaceChatList() {
         chatListAdapter.replaceChatPartners(chatPartnerRegistry.getChatPartnerRegistry());
         chatListAdapter.notifyDataSetChanged();
     }
 
     private void loadChatUsers() {
-        userService.getChatPartnersForUsername(userSession.getUsername()).observe(this, chatPartners -> {
-            if (Objects.nonNull(chatPartners)) {
+        userService.getChatPartnersForUsername(userSession.getUsername()).observe(this, chatPartnersOptional -> {
+            if (Objects.isNull(chatPartnersOptional) || chatPartnersOptional.isEmpty()) {
+                stompSubscriptionRegistry.removeSubscription(NEW_KEY_EXCHANGE_SIGNALING_GENERAL_ENDPOINT + userSession.getSessionId());
+                initiateKeyExchangeWithServerWithRetries(0, () -> {
+                    stompSubscriptionService.subscribeToNewKeyExchangeSignalingDestination();
+                    loadChatUsers();
+                });
+            }
+            if (Objects.nonNull(chatPartnersOptional) && chatPartnersOptional.isPresent()) {
+                List<ChatPartner> chatPartners = chatPartnersOptional.get();
                 log.info("Fetched chat partners = {}", chatPartners);
                 chatPartnerRegistry.addAllChatPartners(chatPartners);
                 chatPartnerRegistry.setInitialFetchDone(true);

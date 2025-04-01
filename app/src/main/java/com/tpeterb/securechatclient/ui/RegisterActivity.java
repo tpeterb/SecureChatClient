@@ -15,14 +15,22 @@ import android.widget.Button;
 import android.widget.EditText;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.LiveData;
 
 import com.google.android.material.textfield.TextInputLayout;
 import com.tpeterb.securechatclient.R;
 import com.tpeterb.securechatclient.application.ChatApplication;
+import com.tpeterb.securechatclient.messages.service.StompSubscriptionService;
+import com.tpeterb.securechatclient.security.cache.DigitalSignatureKeyPairCache;
+import com.tpeterb.securechatclient.security.config.SecurityConfig;
+import com.tpeterb.securechatclient.security.model.KeyExchangeResult;
+import com.tpeterb.securechatclient.security.service.DigitalSignatureService;
+import com.tpeterb.securechatclient.security.service.EllipticCurveDiffieHellmanKeyExchangeService;
 import com.tpeterb.securechatclient.ui.form.UserFormService;
 import com.tpeterb.securechatclient.users.model.RegisterUserDTO;
 import com.tpeterb.securechatclient.users.model.UserRegistrationResult;
 import com.tpeterb.securechatclient.users.service.UserService;
+import com.tpeterb.securechatclient.users.session.UserSession;
 
 import java.util.Optional;
 
@@ -39,6 +47,24 @@ public class RegisterActivity extends AppCompatActivity {
     @Inject
     UserFormService userFormService;
 
+    @Inject
+    SecurityConfig securityConfig;
+
+    @Inject
+    DigitalSignatureKeyPairCache digitalSignatureKeyPairCache;
+
+    @Inject
+    DigitalSignatureService digitalSignatureService;
+
+    @Inject
+    EllipticCurveDiffieHellmanKeyExchangeService ellipticCurveDiffieHellmanKeyExchangeService;
+
+    @Inject
+    StompSubscriptionService stompSubscriptionService;
+
+    @Inject
+    UserSession userSession;
+
     private EditText usernameEditText;
 
     private EditText passwordEditText;
@@ -52,6 +78,19 @@ public class RegisterActivity extends AppCompatActivity {
     private TextInputLayout passwordErrorMessageBox;
 
     private TextInputLayout emailErrorMessageBox;
+
+    @Override
+    protected void onResume() {
+
+        super.onResume();
+
+        userSession.clearUserSession();
+
+        digitalSignatureKeyPairCache.clearDigitalSignatureKeyPairCache();
+
+        initiateKeyExchangeWithServerWithRetries(0, () -> {});
+
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,10 +117,13 @@ public class RegisterActivity extends AppCompatActivity {
 
         registerButton.setOnClickListener(view -> {
             clearAllErrorMessages();
+            digitalSignatureKeyPairCache.generateDigitalSignatureKeyPairForRegistration();
             RegisterUserDTO registerUserDTO = new RegisterUserDTO(
                     userFormService.extractInputFromEditText(usernameEditText),
                     userFormService.extractInputFromEditText(passwordEditText),
-                    userFormService.extractInputFromEditText(emailEditText));
+                    userFormService.extractInputFromEditText(emailEditText),
+                    digitalSignatureService.convertPublicKeyToBytes(digitalSignatureKeyPairCache.getDigitalSignaturePublicKeyForRegistration())
+            );
             Optional<UserRegistrationResult> userRegistrationSyntacticalResult = userService.validateUserRegistrationData(registerUserDTO);
             if (userRegistrationSyntacticalResult.isPresent()) {
                 switch (userRegistrationSyntacticalResult.get()) {
@@ -100,6 +142,7 @@ public class RegisterActivity extends AppCompatActivity {
                     switch (userRegistrationResult) {
                         case SUCCESS:
                             log.info("RegisterActivity got the successful login result!");
+                            digitalSignatureKeyPairCache.persistNewlyRegisteredUserDigitalSignatureKeyPair(registerUserDTO.getUsername());
                             redirectToLoginActivity();
                             break;
                         case CONFLICTED_USERNAME:
@@ -110,6 +153,14 @@ public class RegisterActivity extends AppCompatActivity {
                             log.info("A user already registered with this email!");
                             userFormService.showErrorMessage(emailErrorMessageBox, CONFLICTED_EMAIL_ERROR_MESSAGE);
                             break;
+                        case BAD_SESSION_KEY:
+                            registerButton.setEnabled(false);
+                            registerButton.setAlpha(0.5f);
+                            initiateKeyExchangeWithServerWithRetries(0, () -> {
+                                registerButton.setEnabled(true);
+                                registerButton.setAlpha(1f);
+                            });
+                            break;
                         case GENERAL_FAILURE:
                             log.error("RegisterActivity got the failed login result!");
                             userFormService.showErrorMessage(usernameErrorMessageBox, GENERAL_REGISTRATION_FAILURE_ERROR_MESSAGE);
@@ -119,6 +170,21 @@ public class RegisterActivity extends AppCompatActivity {
             }
         });
 
+    }
+
+    private void initiateKeyExchangeWithServerWithRetries(int retryCount, Runnable successfulKeyExchangeTask) {
+        if (retryCount > securityConfig.getKeyExchangeRetryAttempts()) {
+            return;
+        }
+        int nextRetryCount = retryCount + 1;
+        LiveData<KeyExchangeResult> keyExchangeLiveData = ellipticCurveDiffieHellmanKeyExchangeService.initiateKeyExchangeWithServerBeforeLogin(this);
+        keyExchangeLiveData.observe(this, keyExchangeResult -> {
+            if (keyExchangeResult == KeyExchangeResult.SUCCESS) {
+                successfulKeyExchangeTask.run();
+            } else {
+                initiateKeyExchangeWithServerWithRetries(nextRetryCount, successfulKeyExchangeTask);
+            }
+        });
     }
 
     private void initializeUIElements() {

@@ -1,7 +1,13 @@
 package com.tpeterb.securechatclient.users.service.factory;
 
+import static com.tpeterb.securechatclient.constants.Constants.HTTP_STATUS_CODE_FOR_EXPIRED_SESSION_KEY;
+import static com.tpeterb.securechatclient.constants.Constants.HTTP_STATUS_CODE_FOR_NON_EXISTENT_SESSION_KEY;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tpeterb.securechatclient.constants.Constants;
+import com.tpeterb.securechatclient.security.model.EncryptedPacket;
+import com.tpeterb.securechatclient.security.service.PacketEncryptionService;
 import com.tpeterb.securechatclient.users.api.LoginResponse;
 import com.tpeterb.securechatclient.users.api.RegistrationResponse;
 import com.tpeterb.securechatclient.users.api.UserActionResponse;
@@ -23,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.inject.Inject;
+import javax.inject.Singleton;
 
 import lombok.extern.slf4j.Slf4j;
 import retrofit2.Call;
@@ -30,46 +37,77 @@ import retrofit2.Callback;
 import retrofit2.Response;
 
 @Slf4j
+@Singleton
 public class CallbackFactory {
 
     private final ObjectMapper objectMapper;
 
     private final ChatServerApiService chatServerApiService;
 
+    private final PacketEncryptionService packetEncryptionService;
+
     private final UserConfig userConfig;
 
     private final ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(1);
 
     @Inject
-    public CallbackFactory(ObjectMapper objectMapper, ChatServerApiService chatServerApiService, UserConfig userConfig) {
+    public CallbackFactory(ObjectMapper objectMapper,
+                           ChatServerApiService chatServerApiService,
+                           PacketEncryptionService packetEncryptionService,
+                           UserConfig userConfig) {
         this.objectMapper = objectMapper;
         this.chatServerApiService = chatServerApiService;
+        this.packetEncryptionService = packetEncryptionService;
         this.userConfig = userConfig;
     }
 
-    public <T, U> Callback<? extends UserActionResponse> createCallback(UserAction userAction, T userActionDTO, CompletableFuture<U> completableFuture, AtomicInteger attemptCount) {
+    public <U> Callback<EncryptedPacket> createCallback(UserAction userAction, EncryptedPacket encryptedPacket, CompletableFuture<U> completableFuture, AtomicInteger attemptCount) {
         switch (userAction) {
             case REGISTRATION:
-                return createRegistrationCallback((RegisterUserDTO) userActionDTO, (CompletableFuture<UserRegistrationResult>) completableFuture, attemptCount);
+                return createRegistrationCallback(encryptedPacket, (CompletableFuture<UserRegistrationResult>) completableFuture, attemptCount);
             case LOGIN:
-                return createLoginCallback((LoginUserDTO) userActionDTO, (CompletableFuture<UserLoginResult>) completableFuture, attemptCount);
+                return createLoginCallback(encryptedPacket, (CompletableFuture<UserLoginResult>) completableFuture, attemptCount);
         };
         return null;
     }
 
-    private Callback<RegistrationResponse> createRegistrationCallback(RegisterUserDTO registerUserDTO, CompletableFuture<UserRegistrationResult> registrationResult, AtomicInteger executedRegistrationAttempts) {
-        return new Callback<RegistrationResponse>() {
-
+    private Callback<EncryptedPacket> createRegistrationCallback(EncryptedPacket encryptedPacket, CompletableFuture<UserRegistrationResult> registrationResult, AtomicInteger executedRegistrationAttempts) {
+        return new Callback<EncryptedPacket>() {
             @Override
-            public void onResponse(Call<RegistrationResponse> call, Response<RegistrationResponse> response) {
+            public void onResponse(Call<EncryptedPacket> call, Response<EncryptedPacket> response) {
                 if (response.isSuccessful() && Objects.nonNull(response.body())) {
-                    log.info("Response body: {}", response.body());
+                    log.info("Encrypted packet = {}", response.body());
+                    byte[] decryptedPacket = packetEncryptionService.decryptEntirePacket(response.body());
+                    log.info("Decrypted packet = {}", decryptedPacket);
+                    RegistrationResponse registrationResponse;
+                    try {
+                        registrationResponse = objectMapper.readValue(decryptedPacket, RegistrationResponse.class);
+                    } catch (IOException e) {
+                        log.error("Could not deserialize successful registration reply, reason: {}", e.getMessage());
+                        registrationResult.complete(UserRegistrationResult.GENERAL_FAILURE);
+                        return;
+                    }
+                    log.info("Response body: {}", registrationResponse);
                     registrationResult.complete(UserRegistrationResult.SUCCESS);
-                } else if (!response.isSuccessful() && Objects.nonNull(response.errorBody())){
-                    RegistrationResponse registrationResponse = null;
+                } else if (!response.isSuccessful() && Objects.nonNull(response.errorBody())) {
+                    if (response.code() == HTTP_STATUS_CODE_FOR_EXPIRED_SESSION_KEY || response.code() == HTTP_STATUS_CODE_FOR_NON_EXISTENT_SESSION_KEY) {
+                        log.error("There was an issue with the session key during registration, generating a new one!");
+                        registrationResult.complete(UserRegistrationResult.BAD_SESSION_KEY);
+                        return;
+                    }
+                    EncryptedPacket encryptedPacket;
                     try {
                         String errorBody = response.errorBody().string();
-                        registrationResponse = objectMapper.readValue(errorBody, RegistrationResponse.class);
+                        encryptedPacket = objectMapper.readValue(errorBody, EncryptedPacket.class);
+                    } catch (IOException e) {
+                        log.error("Could not deserialize encrypted error body of registration response, reason: {}", e.getMessage());
+                        registrationResult.complete(UserRegistrationResult.GENERAL_FAILURE);
+                        return;
+                    }
+                    byte[] decryptedPacket = packetEncryptionService.decryptEntirePacket(encryptedPacket);
+                    RegistrationResponse registrationResponse;
+                    try {
+                        registrationResponse = objectMapper.readValue(decryptedPacket, RegistrationResponse.class);
                     } catch (JsonProcessingException e) {
                         log.error("Could not deserialize error body of registration response, reason: {}", e.getMessage());
                         registrationResult.complete(UserRegistrationResult.GENERAL_FAILURE);
@@ -88,7 +126,7 @@ public class CallbackFactory {
             }
 
             @Override
-            public void onFailure(Call<RegistrationResponse> call, Throwable t) {
+            public void onFailure(Call<EncryptedPacket> call, Throwable t) {
                 log.error("Registration request failed", t);
                 if (registrationResult.isDone()) {
                     return;
@@ -96,7 +134,7 @@ public class CallbackFactory {
                 int attempts = executedRegistrationAttempts.incrementAndGet();
                 if (attempts < userConfig.getRegistrationRetryAttempts()) {
                     scheduledExecutorService.schedule(() -> {
-                        Call<RegistrationResponse> registrationCall = chatServerApiService.registerUser(registerUserDTO);
+                        Call<EncryptedPacket> registrationCall = chatServerApiService.registerUser(encryptedPacket);
                         registrationCall.enqueue(this);
                     }, userConfig.getRegistrationRetryBackoffMs(), TimeUnit.MILLISECONDS);
                 } else {
@@ -108,27 +146,42 @@ public class CallbackFactory {
         };
     }
 
-    private Callback<LoginResponse> createLoginCallback(LoginUserDTO loginUserDTO, CompletableFuture<UserLoginResult> userLoginResult, AtomicInteger executedLoginAttempts) {
-        return new Callback<LoginResponse>() {
-
+    private Callback<EncryptedPacket> createLoginCallback(EncryptedPacket encryptedPacket, CompletableFuture<UserLoginResult> userLoginResult, AtomicInteger executedLoginAttempts) {
+        return new Callback<EncryptedPacket>() {
             @Override
-            public void onResponse(Call<LoginResponse> call, Response<LoginResponse> response) {
+            public void onResponse(Call<EncryptedPacket> call, Response<EncryptedPacket> response) {
                 if (response.isSuccessful()) {
                     log.info("Login was successful!");
                     userLoginResult.complete(UserLoginResult.SUCCESS);
                     return;
                 }
                 if (Objects.nonNull(response.errorBody())) {
-                    LoginResponse loginResponse = null;
+                    if (response.code() == HTTP_STATUS_CODE_FOR_EXPIRED_SESSION_KEY || response.code() == HTTP_STATUS_CODE_FOR_NON_EXISTENT_SESSION_KEY) {
+                        log.error("There was an issue with the session key during login, generating a new one!");
+                        userLoginResult.complete(UserLoginResult.BAD_SESSION_KEY);
+                        return;
+                    }
+                    EncryptedPacket encryptedPacket;
                     try {
                         String errorBody = response.errorBody().string();
-                        loginResponse = objectMapper.readValue(errorBody, LoginResponse.class);
+                        encryptedPacket = objectMapper.readValue(errorBody, EncryptedPacket.class);
+                    } catch (IOException e) {
+                        log.error("Failed to deserialize the error body of the encrypted login response, reason: {}", e.getMessage());
+                        userLoginResult.complete(UserLoginResult.FAILURE);
+                        return;
+                    }
+                    byte[] decryptedPacket = packetEncryptionService.decryptEntirePacket(encryptedPacket);
+                    LoginResponse loginResponse;
+                    try {
+                        loginResponse = objectMapper.readValue(decryptedPacket, LoginResponse.class);
                     } catch (JsonProcessingException e) {
                         log.error("Could not deserialize login response, reason: {}", e.getMessage());
                         userLoginResult.complete(UserLoginResult.FAILURE);
+                        return;
                     } catch (IOException e) {
                         log.error("An IO problem occurred while processing the login response, reason: {}", e.getMessage());
                         userLoginResult.complete(UserLoginResult.FAILURE);
+                        return;
                     }
                     log.error("Login failed, reason: {}", loginResponse.getResponse());
                     userLoginResult.complete(loginResponse.getUserLoginResult());
@@ -136,7 +189,7 @@ public class CallbackFactory {
             }
 
             @Override
-            public void onFailure(Call<LoginResponse> call, Throwable throwable) {
+            public void onFailure(Call<EncryptedPacket> call, Throwable throwable) {
                 log.error("Login attempt failed, reason: {}", throwable.getMessage());
                 if (userLoginResult.isDone()) {
                     return;
@@ -144,7 +197,7 @@ public class CallbackFactory {
                 int loginAttempts = executedLoginAttempts.incrementAndGet();
                 if (loginAttempts < userConfig.getLoginRetryAttempts()) {
                     scheduledExecutorService.schedule(() -> {
-                        Call<LoginResponse> loginResponseCall = chatServerApiService.loginUser(loginUserDTO);
+                        Call<EncryptedPacket> loginResponseCall = chatServerApiService.loginUser(encryptedPacket);
                         loginResponseCall.enqueue(this);
                     }, userConfig.getLoginRetryBackoffMs(), TimeUnit.MILLISECONDS);
                 } else {

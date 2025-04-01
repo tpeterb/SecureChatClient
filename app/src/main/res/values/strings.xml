@@ -18,4 +18,6 @@
     <string name="personal_chat_back_arrow">Back arrow from personal chat to chat list</string>
     <string name="personal_chat_message_input_box_hint">Type your message here...</string>
     <string name="personal_chat_message_sending_arrow">Arrow for sending the message</string>
+    <string name="personal_chat_image_sending_icon">Icon for sending an image</string>
+    <string name="personal_chat_transmitted_image">An image sent to someone else</string>
 </resources>

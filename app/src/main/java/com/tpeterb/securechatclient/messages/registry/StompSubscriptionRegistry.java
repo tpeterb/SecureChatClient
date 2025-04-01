@@ -21,9 +21,16 @@ public class StompSubscriptionRegistry {
         subscriptionRegistry = new ConcurrentHashMap<>();
     }
 
+    public synchronized void removeSubscription(String destination) {
+        Disposable subscription = subscriptionRegistry.remove(destination);
+        if (Objects.nonNull(subscription)) {
+            subscription.dispose();
+        }
+    }
+
     public synchronized void clearStompSubscriptionRegistry() {
-        for (Entry<String, Disposable> entry : subscriptionRegistry.entrySet()) {
-            entry.getValue().dispose();
+        for (Disposable disposable : subscriptionRegistry.values()) {
+            disposable.dispose();
         }
         subscriptionRegistry.clear();
     }
